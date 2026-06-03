@@ -1,4 +1,4 @@
-package com.vision.sos.vision
+package com.example.visionsos
 
 import io.flutter.embedding.android.FlutterActivity
 

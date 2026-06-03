@@ -31,32 +31,33 @@ class DefaultFirebaseOptions {
     }
   }
 
-  // Replace with actual Web parameters
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_WEB_MESSAGING_SENDER_ID',
-    projectId: 'vision-sos-app',
-    authDomain: 'vision-sos-app.firebaseapp.com',
-    storageBucket: 'vision-sos-app.appspot.com',
+    apiKey: 'AIzaSyCrnXI42hERpMIW4VJCGvcOYUb5yffFdp8',
+    appId: '1:350079474652:web:ef38523224743bc7eb0d19',
+    messagingSenderId: '350079474652',
+    projectId: 'vision-sos-5df6a',
+    authDomain: 'vision-sos-5df6a.firebaseapp.com',
+    storageBucket: 'vision-sos-5df6a.firebasestorage.app',
+    databaseURL: 'https://vision-sos-5df6a-default-rtdb.firebaseio.com',
+    measurementId: 'G-7TE6X3CS1Z',
   );
 
-  // Replace with actual Android parameters
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: 'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_ANDROID_MESSAGING_SENDER_ID',
-    projectId: 'vision-sos-app',
-    storageBucket: 'vision-sos-app.appspot.com',
+    apiKey: 'AIzaSyCrnXI42hERpMIW4VJCGvcOYUb5yffFdp8',
+    appId: '1:350079474652:android:ef38523224743bc7eb0d19',
+    messagingSenderId: '350079474652',
+    projectId: 'vision-sos-5df6a',
+    storageBucket: 'vision-sos-5df6a.firebasestorage.app',
+    databaseURL: 'https://vision-sos-5df6a-default-rtdb.firebaseio.com',
   );
 
-  // Replace with actual iOS parameters
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'YOUR_IOS_API_KEY',
-    appId: 'YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_IOS_MESSAGING_SENDER_ID',
-    projectId: 'vision-sos-app',
-    storageBucket: 'vision-sos-app.appspot.com',
-    iosBundleId: 'com.vision.sos',
+    apiKey: 'AIzaSyCrnXI42hERpMIW4VJCGvcOYUb5yffFdp8',
+    appId: '1:350079474652:ios:ef38523224743bc7eb0d19',
+    messagingSenderId: '350079474652',
+    projectId: 'vision-sos-5df6a',
+    storageBucket: 'vision-sos-5df6a.firebasestorage.app',
+    databaseURL: 'https://vision-sos-5df6a-default-rtdb.firebaseio.com',
+    iosBundleId: 'com.example.visionsos',
   );
 }
