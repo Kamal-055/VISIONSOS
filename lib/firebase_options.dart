@@ -43,8 +43,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCrnXI42hERpMIW4VJCGvcOYUb5yffFdp8',
-    appId: '1:350079474652:android:ef38523224743bc7eb0d19',
+    apiKey: 'AIzaSyBUz3mi77A2On92kqxV4mAJOTKP_WEskEw',
+    appId: '1:350079474652:android:039eba7d14d20d24eb0d19',
     messagingSenderId: '350079474652',
     projectId: 'vision-sos-5df6a',
     storageBucket: 'vision-sos-5df6a.firebasestorage.app',
@@ -52,8 +52,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCrnXI42hERpMIW4VJCGvcOYUb5yffFdp8',
-    appId: '1:350079474652:ios:ef38523224743bc7eb0d19',
+    apiKey: 'AIzaSyBuNwpO5LJfaml70u-qB2Xrffwu5L6A6es',
+    appId: '1:350079474652:ios:6b1494f4a46a98e4eb0d19',
     messagingSenderId: '350079474652',
     projectId: 'vision-sos-5df6a',
     storageBucket: 'vision-sos-5df6a.firebasestorage.app',

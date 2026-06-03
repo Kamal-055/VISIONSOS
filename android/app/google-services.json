@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "350079474652",
+    "firebase_url": "https://vision-sos-5df6a-default-rtdb.firebaseio.com",
+    "project_id": "vision-sos-5df6a",
+    "storage_bucket": "vision-sos-5df6a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:350079474652:android:039eba7d14d20d24eb0d19",
+        "android_client_info": {
+          "package_name": "com.example.visionsos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUz3mi77A2On92kqxV4mAJOTKP_WEskEw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
