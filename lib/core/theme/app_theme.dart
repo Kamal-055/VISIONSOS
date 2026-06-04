@@ -13,7 +13,7 @@ class AppTheme {
   static const Color error = Color(0xFFEF4444);         // #EF4444 (Red)
   static const Color glassBorder = Color(0xFF334155);    // #334155 (Slate-700)
 
-  // Gradients algorithm
+  // Gradients algorithm 
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primary, accent],
     begin: Alignment.topLeft,
