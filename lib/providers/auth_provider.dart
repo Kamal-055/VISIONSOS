@@ -53,6 +53,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: true);
       try {
         var profile = await _firebaseService.getUserProfile(user.uid);
+        if (profile == null) {
+          final resolvedKey = await _firebaseService.resolveUidByEmail(user.email ?? '');
+          if (resolvedKey != null) {
+            profile = await _firebaseService.getUserProfile(resolvedKey);
+          }
+        }
         profile ??= UserModel(
           uid: user.uid,
           name: user.displayName ?? 'Citizen',
@@ -60,7 +66,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           email: user.email ?? '',
           registeredAt: DateTime.now().toUtc().toIso8601String(),
         );
-        final contacts = await _firebaseService.getEmergencyContacts(user.uid);
+        final contacts = await _firebaseService.getEmergencyContacts(profile.uid);
         state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
       } catch (e) {
         final fallbackProfile = UserModel(
@@ -88,6 +94,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       UserModel? profile;
       try {
         profile = await _firebaseService.getUserProfile(firebaseUser.uid);
+        if (profile == null) {
+          final resolvedKey = await _firebaseService.resolveUidByEmail(firebaseUser.email ?? '');
+          if (resolvedKey != null) {
+            profile = await _firebaseService.getUserProfile(resolvedKey);
+          }
+        }
       } catch (e) {
         // Fallback on error
       }
@@ -102,7 +114,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       Map<String, String>? contacts;
       try {
-        contacts = await _firebaseService.getEmergencyContacts(firebaseUser.uid);
+        contacts = await _firebaseService.getEmergencyContacts(profile.uid);
       } catch (e) {
         // Fallback
       }

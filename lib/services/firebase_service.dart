@@ -42,6 +42,25 @@ class FirebaseService {
     }
   }
 
+  Future<String?> resolveUidByEmail(String email) async {
+    try {
+      if (email.isEmpty) return null;
+      final snapshot = await _usersRef.get();
+      if (snapshot.exists && snapshot.value is Map) {
+        final map = snapshot.value as Map<dynamic, dynamic>;
+        for (final entry in map.entries) {
+          final userData = entry.value as Map<dynamic, dynamic>?;
+          if (userData != null && userData['email']?.toString().toLowerCase().trim() == email.toLowerCase().trim()) {
+            return entry.key.toString();
+          }
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<UserModel?> getUserProfile(String uid) async {
     try {
       final snapshot = await _usersRef.child(uid).get();

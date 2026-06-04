@@ -25,16 +25,16 @@ class SOSAlertModel {
 
   factory SOSAlertModel.fromJson(Map<dynamic, dynamic> json) {
     return SOSAlertModel(
-      alertId: json['alertId'] as String? ?? '',
-      user: json['user'] as String? ?? '',
-      userName: json['userName'] as String? ?? '',
-      phone: json['phone'] as String? ?? '',
-      status: json['status'] as String? ?? 'INACTIVE',
+      alertId: json['alertId']?.toString() ?? '',
+      user: json['user']?.toString() ?? '',
+      userName: json['userName']?.toString() ?? '',
+      phone: json['phone']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'INACTIVE',
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
-      nearestLight: json['nearestLight'] as String? ?? 'NONE',
+      nearestLight: json['nearestLight']?.toString() ?? 'NONE',
       distance: (json['distance'] as num?)?.toDouble() ?? 0.0,
-      timestamp: json['timestamp'] as String? ?? '',
+      timestamp: json['timestamp']?.toString() ?? '',
     );
   }
 
