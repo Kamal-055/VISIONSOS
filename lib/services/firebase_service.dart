@@ -201,7 +201,7 @@ class FirebaseService {
         'assignedOfficer': 'NONE',
         'caseId': 'CASE_${DateTime.now().millisecondsSinceEpoch}',
         'status': 'ACTIVE',
-        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+        'lastUpdated': DateTime.now().toUtc().toIso8601String(),
       });
 
       // Update analytics/summary in real-time
@@ -222,7 +222,7 @@ class FirebaseService {
           'activeSOS': activeSOS + 1,
           'totalSOS': totalSOS + 1,
           'resolvedSOS': resolvedSOS,
-          'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+          'lastUpdated': DateTime.now().toUtc().toIso8601String(),
         });
       } catch (_) {
         // Fallback or ignore write errors if analytics node is protected
@@ -242,7 +242,7 @@ class FirebaseService {
       // Update incident status to RESOLVED
       await _incidentStatusRef.update({
         'status': 'RESOLVED',
-        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+        'lastUpdated': DateTime.now().toUtc().toIso8601String(),
       });
 
       // Update analytics/summary in real-time
@@ -263,7 +263,7 @@ class FirebaseService {
           'activeSOS': (activeSOS - 1).clamp(0, 999999),
           'totalSOS': totalSOS,
           'resolvedSOS': resolvedSOS + 1,
-          'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+          'lastUpdated': DateTime.now().toUtc().toIso8601String(),
         });
       } catch (_) {
         // Fallback or ignore write errors if analytics node is protected
