@@ -44,6 +44,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     if (!mounted) return;
 
+    // Wait until the authentication notifier is not in a loading state anymore
+    // (i.e. _initUser has finished running).
+    while (ref.read(authNotifierProvider).isLoading) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+
+    if (!mounted) return;
+
     final authState = ref.read(authNotifierProvider);
 
     if (authState.isAuthenticated) {

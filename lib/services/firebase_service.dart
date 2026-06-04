@@ -28,7 +28,7 @@ class FirebaseService {
         'name': name,
         'phone': phone,
         'email': email,
-        'registeredAt': timestamp,
+        'createdAt': timestamp,
       });
 
       // Write default emergency contacts
@@ -42,22 +42,67 @@ class FirebaseService {
     }
   }
 
-  Future<String?> resolveUidByEmail(String email) async {
+  Future<void> initializeUserProfile(String uid, String email) async {
     try {
-      if (email.isEmpty) return null;
+      final timestamp = DateTime.now().toUtc().toIso8601String();
+      
+      // Check if user already exists
+      final checkSnapshot = await _usersRef.child(uid).get();
+      if (checkSnapshot.exists) return;
+
+      // Look up if there's a seed/sample user under another key (e.g. sample_user) with the same email
+      String? seedKey;
+      Map<dynamic, dynamic>? seedUserData;
+      
       final snapshot = await _usersRef.get();
       if (snapshot.exists && snapshot.value is Map) {
         final map = snapshot.value as Map<dynamic, dynamic>;
         for (final entry in map.entries) {
           final userData = entry.value as Map<dynamic, dynamic>?;
-          if (userData != null && userData['email']?.toString().toLowerCase().trim() == email.toLowerCase().trim()) {
-            return entry.key.toString();
+          if (userData != null && userData['email']?.toString().toLowerCase().trim() == email.toLowerCase().trim() && entry.key.toString() != uid) {
+            seedKey = entry.key.toString();
+            seedUserData = userData;
+            break;
           }
         }
       }
-      return null;
+      
+      String name = 'Citizen';
+      String phone = '';
+      if (seedUserData != null) {
+        name = seedUserData['name']?.toString() ?? 'Citizen';
+        phone = seedUserData['phone']?.toString() ?? '';
+      }
+      
+      // Write user profile to users/{uid}
+      await _usersRef.child(uid).set({
+        'name': name,
+        'phone': phone,
+        'email': email,
+        'createdAt': timestamp,
+      });
+
+      // Try to load seed emergency contacts
+      Map<String, String> contacts = {
+        'mother': '',
+        'father': '',
+        'friend': '',
+      };
+      
+      if (seedKey != null) {
+        final contactsSnapshot = await _contactsRef.child(seedKey).get();
+        if (contactsSnapshot.exists && contactsSnapshot.value is Map) {
+          final contactsMap = contactsSnapshot.value as Map<dynamic, dynamic>;
+          contacts['mother'] = contactsMap['mother']?.toString() ?? '';
+          contacts['father'] = contactsMap['father']?.toString() ?? '';
+          contacts['friend'] = contactsMap['friend']?.toString() ?? '';
+        }
+      }
+      
+      // Write emergency contacts to emergency_contacts/{uid}
+      await _contactsRef.child(uid).set(contacts);
     } catch (e) {
-      return null;
+      rethrow;
     }
   }
 

@@ -54,17 +54,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       try {
         var profile = await _firebaseService.getUserProfile(user.uid);
         if (profile == null) {
-          final resolvedKey = await _firebaseService.resolveUidByEmail(user.email ?? '');
-          if (resolvedKey != null) {
-            profile = await _firebaseService.getUserProfile(resolvedKey);
-          }
+          await _firebaseService.initializeUserProfile(user.uid, user.email ?? '');
+          profile = await _firebaseService.getUserProfile(user.uid);
         }
         profile ??= UserModel(
           uid: user.uid,
           name: user.displayName ?? 'Citizen',
           phone: user.phoneNumber ?? '',
           email: user.email ?? '',
-          registeredAt: DateTime.now().toUtc().toIso8601String(),
+          createdAt: DateTime.now().toUtc().toIso8601String(),
         );
         final contacts = await _firebaseService.getEmergencyContacts(profile.uid);
         state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
@@ -74,7 +72,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           name: user.displayName ?? 'Citizen',
           phone: user.phoneNumber ?? '',
           email: user.email ?? '',
-          registeredAt: DateTime.now().toUtc().toIso8601String(),
+          createdAt: DateTime.now().toUtc().toIso8601String(),
         );
         state = state.copyWith(
           user: fallbackProfile,
@@ -95,10 +93,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       try {
         profile = await _firebaseService.getUserProfile(firebaseUser.uid);
         if (profile == null) {
-          final resolvedKey = await _firebaseService.resolveUidByEmail(firebaseUser.email ?? '');
-          if (resolvedKey != null) {
-            profile = await _firebaseService.getUserProfile(resolvedKey);
-          }
+          await _firebaseService.initializeUserProfile(firebaseUser.uid, firebaseUser.email ?? '');
+          profile = await _firebaseService.getUserProfile(firebaseUser.uid);
         }
       } catch (e) {
         // Fallback on error
@@ -109,7 +105,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         name: firebaseUser.displayName ?? 'Citizen',
         phone: firebaseUser.phoneNumber ?? '',
         email: firebaseUser.email ?? '',
-        registeredAt: DateTime.now().toUtc().toIso8601String(),
+        createdAt: DateTime.now().toUtc().toIso8601String(),
       );
 
       Map<String, String>? contacts;

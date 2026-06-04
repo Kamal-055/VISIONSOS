@@ -88,6 +88,21 @@ class SOSNotifier extends StateNotifier<SOSState> {
   SOSNotifier(this._locationService, this._firebaseService, this._ref)
       : super(const SOSState()) {
     _startFirebaseListeners();
+    
+    // Start tracking immediately if already authenticated
+    final currentAuth = _ref.read(authNotifierProvider);
+    if (currentAuth.isAuthenticated && currentAuth.user != null) {
+      _startLocationTracking(currentAuth.user!.uid);
+    }
+
+    // Listen for future auth changes to start/stop tracking
+    _ref.listen<AuthState>(authNotifierProvider, (previous, next) {
+      if (next.isAuthenticated && next.user != null) {
+        _startLocationTracking(next.user!.uid);
+      } else {
+        _stopLocationTracking();
+      }
+    });
   }
 
   Future<void> _playAlarm() async {
@@ -125,7 +140,6 @@ class SOSNotifier extends StateNotifier<SOSState> {
             status: 'INACTIVE',
             isSOSActive: false,
           );
-          _stopLocationTracking();
           _stopAlarm();
         }
       },
@@ -256,7 +270,6 @@ class SOSNotifier extends StateNotifier<SOSState> {
 
     try {
       await _firebaseService.cancelSOS(user.uid);
-      _stopLocationTracking();
       _stopAlarm();
 
       state = state.copyWith(
