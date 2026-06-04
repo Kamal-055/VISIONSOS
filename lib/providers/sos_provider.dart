@@ -18,6 +18,9 @@ class SOSState {
   final String nearestLight;
   final double distance;
   final String incidentStatus;
+  final String assignedLight;
+  final String assignedOfficer;
+  final String caseId;
   final bool isSOSActive;
   final String? errorMessage;
   final bool isLoading;
@@ -30,6 +33,9 @@ class SOSState {
     this.nearestLight = 'NONE',
     this.distance = 0.0,
     this.incidentStatus = 'NONE',
+    this.assignedLight = 'NONE',
+    this.assignedOfficer = 'NONE',
+    this.caseId = 'NONE',
     this.isSOSActive = false,
     this.errorMessage,
     this.isLoading = false,
@@ -43,6 +49,9 @@ class SOSState {
     String? nearestLight,
     double? distance,
     String? incidentStatus,
+    String? assignedLight,
+    String? assignedOfficer,
+    String? caseId,
     bool? isSOSActive,
     String? errorMessage,
     bool? isLoading,
@@ -55,6 +64,9 @@ class SOSState {
       nearestLight: nearestLight ?? this.nearestLight,
       distance: distance ?? this.distance,
       incidentStatus: incidentStatus ?? this.incidentStatus,
+      assignedLight: assignedLight ?? this.assignedLight,
+      assignedOfficer: assignedOfficer ?? this.assignedOfficer,
+      caseId: caseId ?? this.caseId,
       isSOSActive: isSOSActive ?? this.isSOSActive,
       errorMessage: errorMessage, // can be cleared
       isLoading: isLoading ?? this.isLoading,
@@ -129,6 +141,9 @@ class SOSNotifier extends StateNotifier<SOSState> {
         if (data != null) {
           state = state.copyWith(
             incidentStatus: (data['status'] as String?) ?? 'NONE',
+            assignedLight: (data['assignedLight'] as String?) ?? 'NONE',
+            assignedOfficer: (data['assignedOfficer'] as String?) ?? 'NONE',
+            caseId: (data['caseId'] as String?) ?? 'NONE',
           );
         }
       },

@@ -70,9 +70,9 @@ class FirebaseService {
       if (snapshot.exists) {
         final data = snapshot.value as Map<dynamic, dynamic>;
         return {
-          'mother': (data['mother'] as String?) ?? '',
-          'father': (data['father'] as String?) ?? '',
-          'friend': (data['friend'] as String?) ?? '',
+          'mother': data['mother']?.toString() ?? '',
+          'father': data['father']?.toString() ?? '',
+          'friend': data['friend']?.toString() ?? '',
         };
       }
       return null;

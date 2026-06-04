@@ -402,22 +402,55 @@ class _SOSScreenState extends ConsumerState<SOSScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildMetricTile(
-                title: 'Nearest Light',
-                value: state.nearestLight,
-                color: Colors.amber,
+              Expanded(
+                child: _buildMetricTile(
+                  title: 'Nearest Light',
+                  value: state.nearestLight,
+                  color: Colors.amber,
+                ),
               ),
-              _buildMetricTile(
-                title: 'Distance',
-                value: '${state.distance.toStringAsFixed(1)} m',
-                color: const Color(0xFF2563EB),
+              Expanded(
+                child: _buildMetricTile(
+                  title: 'Distance',
+                  value: '${state.distance.toStringAsFixed(1)} m',
+                  color: const Color(0xFF2563EB),
+                ),
               ),
-              _buildMetricTile(
-                title: 'Case Status',
-                value: state.incidentStatus,
-                color: state.incidentStatus == 'ACTIVE' || state.incidentStatus == 'RESPONDING'
-                    ? const Color(0xFFEF4444)
-                    : const Color(0xFF22C55E),
+              Expanded(
+                child: _buildMetricTile(
+                  title: 'Case Status',
+                  value: state.incidentStatus,
+                  color: state.incidentStatus == 'ACTIVE' || state.incidentStatus == 'RESPONDING'
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF22C55E),
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Color(0xFF334155), height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: _buildMetricTile(
+                  title: 'Assigned Light',
+                  value: state.assignedLight,
+                  color: Colors.amber,
+                ),
+              ),
+              Expanded(
+                child: _buildMetricTile(
+                  title: 'Assigned Officer',
+                  value: state.assignedOfficer,
+                  color: const Color(0xFF7C3AED),
+                ),
+              ),
+              Expanded(
+                child: _buildMetricTile(
+                  title: 'Case ID',
+                  value: state.caseId,
+                  color: Colors.white,
+                ),
               ),
             ],
           ),
