@@ -12,6 +12,7 @@ import 'package:vision/features/auth/register/register_screen.dart';
 import 'package:vision/features/auth/forgot_password/forgot_password_screen.dart';
 import 'package:vision/features/home/home_screen.dart';
 import 'package:vision/features/profile/profile_screen.dart';
+import 'package:vision/features/sos/sos_screen.dart';
 
 // Helper class to adapt a Stream to a Listenable for GoRouter
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -95,6 +96,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/sos',
+        builder: (context, state) => const SOSScreen(),
       ),
     ],
   );

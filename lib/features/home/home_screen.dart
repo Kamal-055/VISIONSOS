@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:vision/core/theme/app_theme.dart';
 import 'package:vision/providers/auth_provider.dart';
+import 'package:vision/providers/sos_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -11,6 +12,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
+    final sosState = ref.watch(sosNotifierProvider);
     final user = authState.value;
     final String displayName = user?.name ?? 'User';
 
@@ -31,19 +33,12 @@ class HomeScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top Header Bar
                 _buildHeader(context, displayName),
                 const SizedBox(height: 24),
-
-                // Safety Status Banner
-                _buildSafetyStatus(),
+                _buildSafetyStatus(sosState),
                 const SizedBox(height: 24),
-
-                // SOS Module Preview (Main Feature placeholder)
-                _buildSOSModuleCard(),
+                _buildSOSModuleCard(context, sosState),
                 const SizedBox(height: 20),
-
-                // Features Grid
                 Text(
                   'Safety Modules',
                   style: GoogleFonts.outfit(
@@ -53,7 +48,6 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
                 GridView.count(
                   crossAxisCount: 2,
                   shrinkWrap: true,
@@ -65,30 +59,34 @@ class HomeScreen extends ConsumerWidget {
                     _buildFeatureCard(
                       icon: Icons.map_outlined,
                       title: 'Live Tracking',
-                      status: 'GPS Enabled',
-                      details: 'Future map integration',
+                      status: sosState.isActive ? 'ACTIVE' : 'GPS Ready',
+                      details: 'Real-time GPS broadcast',
                       color: AppTheme.primary,
+                      isActive: sosState.isActive,
                     ),
                     _buildFeatureCard(
                       icon: Icons.history_rounded,
                       title: 'Safety Logs',
-                      status: '3 Incidents Logged',
-                      details: 'History database preview',
+                      status: 'View History',
+                      details: 'Past incidents & alerts',
                       color: AppTheme.accent,
+                      isActive: false,
                     ),
                     _buildFeatureCard(
                       icon: Icons.lightbulb_outline_rounded,
                       title: 'Streetlights',
-                      status: 'IoT Connectable',
-                      details: 'Smart grids preview',
+                      status: sosState.isActive ? 'TRIGGERED' : 'IoT Ready',
+                      details: 'Smart zone lighting',
                       color: Colors.amber,
+                      isActive: sosState.isActive,
                     ),
                     _buildFeatureCard(
-                      icon: Icons.people_outline_rounded,
-                      title: 'Guardians',
-                      status: '4 Contacts Ready',
-                      details: 'Emergency list preview',
+                      icon: Icons.local_police_outlined,
+                      title: 'Police',
+                      status: sosState.isActive ? 'NOTIFIED' : 'On Standby',
+                      details: 'Emergency dispatch channel',
                       color: AppTheme.success,
+                      isActive: sosState.isActive,
                     ),
                   ],
                 ),
@@ -147,17 +145,25 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSafetyStatus() {
-    return Container(
+  Widget _buildSafetyStatus(SOSState sosState) {
+    final isActive = sosState.isActive;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor.withOpacity(0.4),
+        color: isActive
+            ? AppTheme.error.withOpacity(0.1)
+            : AppTheme.cardColor.withOpacity(0.4),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.glassBorder, width: 1),
+        border: Border.all(
+          color: isActive
+              ? AppTheme.error.withOpacity(0.5)
+              : AppTheme.glassBorder,
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
-          // Glowing status pulse circle
           Stack(
             alignment: Alignment.center,
             children: [
@@ -166,15 +172,17 @@ class HomeScreen extends ConsumerWidget {
                 height: 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.success.withOpacity(0.2),
+                  color: isActive
+                      ? AppTheme.error.withOpacity(0.2)
+                      : AppTheme.success.withOpacity(0.2),
                 ),
               ),
               Container(
                 width: 12,
                 height: 12,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppTheme.success,
+                  color: isActive ? AppTheme.error : AppTheme.success,
                 ),
               ),
             ],
@@ -194,9 +202,11 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  'All Networks Secure',
+                  isActive
+                      ? '🚨 SOS Alert Active — Help Dispatched'
+                      : 'All Networks Secure',
                   style: GoogleFonts.outfit(
-                    color: Colors.white,
+                    color: isActive ? AppTheme.error : Colors.white,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -204,9 +214,9 @@ class HomeScreen extends ConsumerWidget {
               ],
             ),
           ),
-          const Icon(
-            Icons.verified_user_rounded,
-            color: AppTheme.success,
+          Icon(
+            isActive ? Icons.warning_amber_rounded : Icons.verified_user_rounded,
+            color: isActive ? AppTheme.error : AppTheme.success,
             size: 24,
           ),
         ],
@@ -214,30 +224,31 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSOSModuleCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0x33EF4444),
-            Color(0x110F172A),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  Widget _buildSOSModuleCard(BuildContext context, SOSState sosState) {
+    return GestureDetector(
+      onTap: () => context.push('/sos'),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppTheme.error.withOpacity(sosState.isActive ? 0.3 : 0.2),
+              const Color(0x110F172A),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(
+            color: AppTheme.error.withOpacity(sosState.isActive ? 0.6 : 0.3),
+            width: 1.5,
+          ),
         ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: AppTheme.error.withOpacity(0.3),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
+        child: Row(
+          children: [
+            // Left content
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -249,31 +260,64 @@ class HomeScreen extends ConsumerWidget {
                       letterSpacing: 1.5,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
-                    'Trigger Smart Dispatch',
+                    sosState.isActive
+                        ? 'Alert Active — Tap to Manage'
+                        : 'Press & Hold to Activate',
                     style: GoogleFonts.outfit(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    sosState.isActive
+                        ? '✓ GPS  ✓ Police  ✓ Streetlights'
+                        : 'GPS · Police · Streetlights · Tracking',
+                    style: GoogleFonts.outfit(
+                      color: sosState.isActive
+                          ? AppTheme.success
+                          : AppTheme.textMutedColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      gradient: sosState.isActive
+                          ? null
+                          : AppTheme.alertGradient,
+                      color: sosState.isActive
+                          ? AppTheme.cardColor.withOpacity(0.6)
+                          : null,
+                      borderRadius: BorderRadius.circular(12),
+                      border: sosState.isActive
+                          ? Border.all(color: AppTheme.error.withOpacity(0.4))
+                          : null,
+                    ),
+                    child: Text(
+                      sosState.isActive ? 'MANAGE ALERT →' : 'OPEN SOS →',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              Icon(
-                Icons.warning_amber_rounded,
-                color: AppTheme.error.withOpacity(0.8),
-                size: 28,
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          
-          // SOS Button visual helper
-          Center(
-            child: Container(
-              width: 120,
-              height: 120,
+            ),
+            const SizedBox(width: 20),
+            // Right SOS button visual
+            Container(
+              width: 90,
+              height: 90,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: const LinearGradient(
@@ -281,9 +325,10 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.error.withOpacity(0.3),
-                    blurRadius: 24,
-                    spreadRadius: 2,
+                    color: AppTheme.error.withOpacity(
+                        sosState.isActive ? 0.5 : 0.3),
+                    blurRadius: sosState.isActive ? 20 : 12,
+                    spreadRadius: sosState.isActive ? 4 : 1,
                   ),
                 ],
               ),
@@ -292,25 +337,14 @@ class HomeScreen extends ConsumerWidget {
                 'SOS',
                 style: GoogleFonts.outfit(
                   color: Colors.white,
-                  fontSize: 26,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-          
-          Text(
-            'SOS trigger, GPS broadcast, and police notification services are configured in model state and will bind in Phase 2.',
-            style: GoogleFonts.outfit(
-              color: AppTheme.textMutedColor,
-              fontSize: 12,
-              height: 1.4,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -321,13 +355,20 @@ class HomeScreen extends ConsumerWidget {
     required String status,
     required String details,
     required Color color,
+    required bool isActive,
   }) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor.withOpacity(0.4),
+        color: isActive
+            ? color.withOpacity(0.1)
+            : AppTheme.cardColor.withOpacity(0.4),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.glassBorder, width: 1),
+        border: Border.all(
+          color: isActive ? color.withOpacity(0.4) : AppTheme.glassBorder,
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,17 +377,13 @@ class HomeScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                icon,
-                color: color,
-                size: 28,
-              ),
+              Icon(icon, color: color, size: 28),
               Container(
                 width: 6,
                 height: 6,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: color,
+                  color: isActive ? color : AppTheme.glassBorder,
                 ),
               ),
             ],
@@ -366,9 +403,9 @@ class HomeScreen extends ConsumerWidget {
               Text(
                 status,
                 style: GoogleFonts.outfit(
-                  color: color,
+                  color: isActive ? color : AppTheme.textMutedColor,
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 4),
