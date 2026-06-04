@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vision/providers/auth_provider.dart';
 import 'package:vision/screens/sos_screen.dart';
+import 'package:vision/screens/vision_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -288,12 +289,58 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       // Header
                       Column(
                         children: [
-                          Image.asset(
-                            'assets/images/logo.png',
-                            height: 120,
-                            fit: BoxFit.contain,
+                          const VisionLogo(size: 85),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'VISI',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 3,
+                                ),
+                              ),
+                              Container(
+                                width: 22,
+                                height: 22,
+                                margin: const EdgeInsets.only(left: 3, right: 6),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: const Color(0xFF2563EB),
+                                    width: 3.5,
+                                  ),
+                                  gradient: const SweepGradient(
+                                    colors: [
+                                      Color(0xFF2563EB),
+                                      Color(0xFF7C3AED),
+                                      Color(0xFF2563EB),
+                                    ],
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFF7C3AED).withOpacity(0.8),
+                                      blurRadius: 8,
+                                      spreadRadius: 0.5,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                'N',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 3,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(
                             'Smart Emergency SOS Portal',
                             style: GoogleFonts.outfit(

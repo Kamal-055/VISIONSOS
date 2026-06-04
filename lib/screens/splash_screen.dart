@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:vision/providers/auth_provider.dart';
 import 'package:vision/screens/login_screen.dart';
 import 'package:vision/screens/sos_screen.dart';
+import 'package:vision/screens/vision_logo.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -101,10 +103,66 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset(
-                      'assets/images/logo.png',
-                      height: 280,
-                      fit: BoxFit.contain,
+                    const VisionLogo(size: 140),
+                    const SizedBox(height: 28),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'VISI',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 48,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                        Container(
+                          width: 32,
+                          height: 32,
+                          margin: const EdgeInsets.only(left: 4, right: 8),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: const Color(0xFF2563EB),
+                              width: 4.5,
+                            ),
+                            gradient: const SweepGradient(
+                              colors: [
+                                Color(0xFF2563EB),
+                                Color(0xFF7C3AED),
+                                Color(0xFF2563EB),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF7C3AED).withOpacity(0.8),
+                                blurRadius: 10,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          'N',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 48,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'SEE  •  SECURE  •  SERVE',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 4,
+                      ),
                     ),
                   ],
                 ),
