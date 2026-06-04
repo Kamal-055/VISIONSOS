@@ -2,7 +2,7 @@ class AppConstants {
   static const String appName = 'VISION';
   static const String appTagline = 'SEE • SECURE • SERVE';
   
-  // Firestore Collection Names
+  // Firestore Collection Name
   static const String usersCollection = 'users';
   static const String sosCollection = 'sos';
   static const String reportsCollection = 'reports';
