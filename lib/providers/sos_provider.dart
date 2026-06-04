@@ -127,16 +127,32 @@ class SOSNotifier extends StateNotifier<SOSState> {
     _alertSubscription = _firebaseService.currentAlertStream().listen(
       (event) {
         final data = event.snapshot.value as Map<dynamic, dynamic>?;
+        final currentAuth = _ref.read(authNotifierProvider);
+        final currentUid = currentAuth.user?.uid;
+
         if (data != null && data['status'] == 'ACTIVE') {
-          state = state.copyWith(
-            nearestLight: (data['nearestLight'] as String?) ?? 'NONE',
-            distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
-            status: 'ACTIVE',
-            isSOSActive: true,
-            lastUpdated: (data['timestamp'] as String?) ?? state.lastUpdated,
-          );
-          _playAlarm();
-        } else if (data != null && data['status'] == 'INACTIVE') {
+          final alertUser = data['user'] as String?;
+          if (alertUser == currentUid) {
+            state = state.copyWith(
+              nearestLight: (data['nearestLight'] as String?) ?? 'NONE',
+              distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
+              status: 'ACTIVE',
+              isSOSActive: true,
+              lastUpdated: (data['timestamp'] as String?) ?? state.lastUpdated,
+            );
+            _playAlarm();
+          } else {
+            // Alert is active but belongs to someone else
+            state = state.copyWith(
+              nearestLight: (data['nearestLight'] as String?) ?? 'NONE',
+              distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
+              status: 'INACTIVE',
+              isSOSActive: false,
+            );
+            _stopAlarm();
+          }
+        } else {
+          // Alert is INACTIVE, null, or deleted
           state = state.copyWith(
             status: 'INACTIVE',
             isSOSActive: false,
@@ -160,6 +176,13 @@ class SOSNotifier extends StateNotifier<SOSState> {
             assignedOfficer: (data['assignedOfficer'] as String?) ?? 'NONE',
             caseId: (data['caseId'] as String?) ?? 'NONE',
             lastUpdated: data['lastUpdated'] != null ? data['lastUpdated'].toString() : state.lastUpdated,
+          );
+        } else {
+          state = state.copyWith(
+            incidentStatus: 'NONE',
+            assignedLight: 'NONE',
+            assignedOfficer: 'NONE',
+            caseId: 'NONE',
           );
         }
       },

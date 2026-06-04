@@ -207,19 +207,17 @@ class FirebaseService {
       // Update analytics/summary in real-time
       try {
         final summarySnapshot = await _analyticsSummaryRef.get();
-        int activeSOS = 0;
         int totalSOS = 0;
         int resolvedSOS = 0;
 
         if (summarySnapshot.exists && summarySnapshot.value is Map) {
           final data = summarySnapshot.value as Map<dynamic, dynamic>;
-          activeSOS = (data['activeSOS'] as num?)?.toInt() ?? 0;
           totalSOS = (data['totalSOS'] as num?)?.toInt() ?? 0;
           resolvedSOS = (data['resolvedSOS'] as num?)?.toInt() ?? 0;
         }
 
         await _analyticsSummaryRef.set({
-          'activeSOS': activeSOS + 1,
+          'activeSOS': 1, // Force 1 active SOS
           'totalSOS': totalSOS + 1,
           'resolvedSOS': resolvedSOS,
           'lastUpdated': DateTime.now().millisecondsSinceEpoch,
@@ -248,19 +246,17 @@ class FirebaseService {
       // Update analytics/summary in real-time
       try {
         final summarySnapshot = await _analyticsSummaryRef.get();
-        int activeSOS = 0;
         int totalSOS = 0;
         int resolvedSOS = 0;
 
         if (summarySnapshot.exists && summarySnapshot.value is Map) {
           final data = summarySnapshot.value as Map<dynamic, dynamic>;
-          activeSOS = (data['activeSOS'] as num?)?.toInt() ?? 0;
           totalSOS = (data['totalSOS'] as num?)?.toInt() ?? 0;
           resolvedSOS = (data['resolvedSOS'] as num?)?.toInt() ?? 0;
         }
 
         await _analyticsSummaryRef.set({
-          'activeSOS': (activeSOS - 1).clamp(0, 999999),
+          'activeSOS': 0, // Force 0 active SOS as it is deactivated
           'totalSOS': totalSOS,
           'resolvedSOS': resolvedSOS + 1,
           'lastUpdated': DateTime.now().millisecondsSinceEpoch,
