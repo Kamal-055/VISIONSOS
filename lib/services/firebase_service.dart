@@ -16,6 +16,7 @@ class FirebaseService {
   DatabaseReference get _sosHistoryRef => _db.ref('sos_history');
   DatabaseReference get _liveTrackingRef => _db.ref('live_tracking');
   DatabaseReference get _incidentStatusRef => _db.ref('incident_status/current_case');
+  DatabaseReference get _analyticsSummaryRef => _db.ref('analytics/summary');
 
   // --- USER OPERATIONS ---
   
@@ -193,6 +194,39 @@ class FirebaseService {
 
       // Step 5: Write history entry under sos_history/{alertId}
       await _sosHistoryRef.child(alert.alertId).set(alert.toHistoryJson());
+
+      // Reset incident status and lastUpdated timestamp
+      await _incidentStatusRef.set({
+        'assignedLight': 'NONE',
+        'assignedOfficer': 'NONE',
+        'caseId': 'CASE_${DateTime.now().millisecondsSinceEpoch}',
+        'status': 'ACTIVE',
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      // Update analytics/summary in real-time
+      try {
+        final summarySnapshot = await _analyticsSummaryRef.get();
+        int activeSOS = 0;
+        int totalSOS = 0;
+        int resolvedSOS = 0;
+
+        if (summarySnapshot.exists && summarySnapshot.value is Map) {
+          final data = summarySnapshot.value as Map<dynamic, dynamic>;
+          activeSOS = (data['activeSOS'] as num?)?.toInt() ?? 0;
+          totalSOS = (data['totalSOS'] as num?)?.toInt() ?? 0;
+          resolvedSOS = (data['resolvedSOS'] as num?)?.toInt() ?? 0;
+        }
+
+        await _analyticsSummaryRef.set({
+          'activeSOS': activeSOS + 1,
+          'totalSOS': totalSOS + 1,
+          'resolvedSOS': resolvedSOS,
+          'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+        });
+      } catch (_) {
+        // Fallback or ignore write errors if analytics node is protected
+      }
     } catch (e) {
       rethrow;
     }
@@ -204,6 +238,36 @@ class FirebaseService {
       await _sosAlertRef.update({
         'status': 'INACTIVE',
       });
+
+      // Update incident status to RESOLVED
+      await _incidentStatusRef.update({
+        'status': 'RESOLVED',
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      });
+
+      // Update analytics/summary in real-time
+      try {
+        final summarySnapshot = await _analyticsSummaryRef.get();
+        int activeSOS = 0;
+        int totalSOS = 0;
+        int resolvedSOS = 0;
+
+        if (summarySnapshot.exists && summarySnapshot.value is Map) {
+          final data = summarySnapshot.value as Map<dynamic, dynamic>;
+          activeSOS = (data['activeSOS'] as num?)?.toInt() ?? 0;
+          totalSOS = (data['totalSOS'] as num?)?.toInt() ?? 0;
+          resolvedSOS = (data['resolvedSOS'] as num?)?.toInt() ?? 0;
+        }
+
+        await _analyticsSummaryRef.set({
+          'activeSOS': (activeSOS - 1).clamp(0, 999999),
+          'totalSOS': totalSOS,
+          'resolvedSOS': resolvedSOS + 1,
+          'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+        });
+      } catch (_) {
+        // Fallback or ignore write errors if analytics node is protected
+      }
     } catch (e) {
       rethrow;
     }

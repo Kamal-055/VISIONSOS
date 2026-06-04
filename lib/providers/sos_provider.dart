@@ -133,6 +133,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
             distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
             status: 'ACTIVE',
             isSOSActive: true,
+            lastUpdated: (data['timestamp'] as String?) ?? state.lastUpdated,
           );
           _playAlarm();
         } else if (data != null && data['status'] == 'INACTIVE') {
@@ -158,6 +159,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
             assignedLight: (data['assignedLight'] as String?) ?? 'NONE',
             assignedOfficer: (data['assignedOfficer'] as String?) ?? 'NONE',
             caseId: (data['caseId'] as String?) ?? 'NONE',
+            lastUpdated: data['lastUpdated'] != null ? data['lastUpdated'].toString() : state.lastUpdated,
           );
         }
       },

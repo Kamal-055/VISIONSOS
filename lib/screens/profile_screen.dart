@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:vision/providers/auth_provider.dart';
 import 'package:vision/providers/sos_provider.dart';
 import 'package:vision/screens/login_screen.dart';
@@ -384,7 +385,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         Expanded(
                           child: Text(
-                            sosState.lastUpdated.isEmpty ? 'NEVER' : sosState.lastUpdated,
+                            _formatTimestamp(sosState.lastUpdated),
                             style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                             textAlign: TextAlign.right,
                             overflow: TextOverflow.ellipsis,
@@ -465,5 +466,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       validator: validator,
     );
+  }
+
+  String _formatTimestamp(String timestamp) {
+    if (timestamp.isEmpty || timestamp == 'NEVER' || timestamp == '0') {
+      return 'NEVER';
+    }
+    try {
+      final parsed = DateTime.tryParse(timestamp);
+      if (parsed != null) {
+        final localTime = parsed.toLocal();
+        return DateFormat('dd MMM yyyy, hh:mm:ss a').format(localTime);
+      }
+    } catch (_) {}
+    try {
+      int? ms = int.tryParse(timestamp);
+      if (ms != null && ms > 0) {
+        if (ms < 10000000000) {
+          ms = ms * 1000;
+        }
+        final localTime = DateTime.fromMillisecondsSinceEpoch(ms).toLocal();
+        return DateFormat('dd MMM yyyy, hh:mm:ss a').format(localTime);
+      }
+    } catch (_) {}
+    return timestamp;
   }
 }
