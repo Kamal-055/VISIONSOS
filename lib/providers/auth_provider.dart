@@ -1,81 +1,76 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vision/models/user_model.dart';
-import 'package:vision/repositories/auth_repository.dart';
+import 'package:vision/services/auth_service.dart';
+import 'package:vision/services/firebase_service.dart';
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepositoryImpl();
-});
+// Providers for the services
+final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+final firebaseServiceProvider = Provider<FirebaseService>((ref) => FirebaseService());
 
-final authStateProvider = StreamProvider<User?>((ref) {
-  return ref.watch(authRepositoryProvider).authStateChanges;
-});
+// State class for Auth State
+class AuthState {
+  final UserModel? user;
+  final Map<String, String>? contacts;
+  final bool isLoading;
+  final String? errorMessage;
 
-final authNotifierProvider = StateNotifierProvider<AuthNotifier, AsyncValue<UserModel?>>((ref) {
-  final repository = ref.watch(authRepositoryProvider);
-  return AuthNotifier(repository, ref);
-});
+  const AuthState({
+    this.user,
+    this.contacts,
+    this.isLoading = false,
+    this.errorMessage,
+  });
 
-class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
-  final AuthRepository _authRepository;
-  final Ref _ref;
-
-  AuthNotifier(this._authRepository, this._ref) : super(const AsyncValue.loading()) {
-    _init();
+  AuthState copyWith({
+    UserModel? user,
+    Map<String, String>? contacts,
+    bool? isLoading,
+    String? errorMessage,
+  }) {
+    return AuthState(
+      user: user ?? this.user,
+      contacts: contacts ?? this.contacts,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage, // can be cleared
+    );
   }
 
-  void _init() {
-    // Listen to Firebase Auth changes to sync profile
-    _ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) async {
-      next.when(
-        data: (firebaseUser) async {
-          if (firebaseUser == null) {
-            state = const AsyncValue.data(null);
-          } else {
-            await loadUserDetails(firebaseUser.uid);
-          }
-        },
-        error: (err, stack) {
-          state = AsyncValue.error(err, stack);
-        },
-        loading: () {
-          // Do not overwrite existing profile state with loading
-          // if we are already logged in to prevent visual flashes
-          if (state.value == null) {
-            state = const AsyncValue.loading();
-          }
-        },
-      );
-    });
+  bool get isAuthenticated => user != null;
+}
 
-    // Check initial session
-    final initialUser = _authRepository.currentFirebaseUser;
-    if (initialUser != null) {
-      loadUserDetails(initialUser.uid);
-    } else {
-      state = const AsyncValue.data(null);
-    }
+class AuthNotifier extends StateNotifier<AuthState> {
+  final AuthService _authService;
+  final FirebaseService _firebaseService;
+
+  AuthNotifier(this._authService, this._firebaseService) : super(const AuthState()) {
+    // Automatically load current user on provider creation
+    _initUser();
   }
 
-  Future<void> loadUserDetails(String uid) async {
-    try {
-      final userModel = await _authRepository.getUserDetails(uid);
-      state = AsyncValue.data(userModel);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+  Future<void> _initUser() async {
+    final user = _authService.currentUser;
+    if (user != null) {
+      state = state.copyWith(isLoading: true);
+      try {
+        final profile = await _firebaseService.getUserProfile(user.uid);
+        final contacts = await _firebaseService.getEmergencyContacts(user.uid);
+        state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
+      } catch (e) {
+        state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      }
     }
   }
 
   Future<void> login(String email, String password) async {
-    state = const AsyncValue.loading();
+    state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final userModel = await _authRepository.signIn(
-        email: email,
-        password: password,
-      );
-      state = AsyncValue.data(userModel);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      final credential = await _authService.signIn(email, password);
+      final uid = credential.user!.uid;
+      final profile = await _firebaseService.getUserProfile(uid);
+      final contacts = await _firebaseService.getEmergencyContacts(uid);
+      state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
       rethrow;
     }
   }
@@ -86,52 +81,83 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     required String email,
     required String password,
   }) async {
-    state = const AsyncValue.loading();
+    state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final userModel = await _authRepository.signUp(
-        name: name,
-        phone: phone,
-        email: email,
-        password: password,
-      );
-      state = AsyncValue.data(userModel);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
-      rethrow;
-    }
-  }
-
-  Future<void> resetPassword(String email) async {
-    try {
-      await _authRepository.sendPasswordResetEmail(email);
+      final credential = await _authService.signUp(email, password);
+      final uid = credential.user!.uid;
+      
+      // Write metadata to Realtime Database
+      await _firebaseService.createUserProfile(uid, name, phone, email);
+      
+      final profile = await _firebaseService.getUserProfile(uid);
+      final contacts = await _firebaseService.getEmergencyContacts(uid);
+      
+      state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
     } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
       rethrow;
     }
   }
 
   Future<void> updateProfile({required String name, required String phone}) async {
-    final currentUser = state.value;
+    final currentUser = state.user;
+    if (currentUser == null) return;
+    
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      await _firebaseService.updateUserProfile(currentUser.uid, name, phone);
+      final updatedUser = currentUser.copyWith(name: name, phone: phone);
+      state = state.copyWith(user: updatedUser, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> updateContacts({
+    required String mother,
+    required String father,
+    required String friend,
+  }) async {
+    final currentUser = state.user;
     if (currentUser == null) return;
 
-    state = const AsyncValue.loading();
+    state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      await _authRepository.updateProfile(name: name, phone: phone);
-      final updatedUser = currentUser.copyWith(name: name, phone: phone);
-      state = AsyncValue.data(updatedUser);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      await _firebaseService.updateEmergencyContacts(
+        currentUser.uid,
+        mother: mother,
+        father: father,
+        friend: friend,
+      );
+      state = state.copyWith(
+        contacts: {'mother': mother, 'father': father, 'friend': friend},
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
       rethrow;
     }
   }
 
   Future<void> logout() async {
-    state = const AsyncValue.loading();
+    state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      await _authRepository.signOut();
-      state = const AsyncValue.data(null);
-    } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      await _authService.signOut();
+      state = const AuthState();
+    } catch (e) {
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
       rethrow;
     }
   }
+
+  void clearError() {
+    state = state.copyWith(errorMessage: null);
+  }
 }
+
+final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final authService = ref.watch(authServiceProvider);
+  final firebaseService = ref.watch(firebaseServiceProvider);
+  return AuthNotifier(authService, firebaseService);
+});

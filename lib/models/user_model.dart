@@ -1,73 +1,49 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class UserModel {
   final String uid;
   final String name;
   final String phone;
   final String email;
-  final String role;
-  final DateTime createdAt;
-  final DateTime lastLoginAt;
+  final String registeredAt;
 
   UserModel({
     required this.uid,
     required this.name,
     required this.phone,
     required this.email,
-    required this.role,
-    required this.createdAt,
-    required this.lastLoginAt,
+    required this.registeredAt,
   });
 
-  UserModel copyWith({
-    String? uid,
-    String? name,
-    String? phone,
-    String? email,
-    String? role,
-    DateTime? createdAt,
-    DateTime? lastLoginAt,
-  }) {
+  factory UserModel.fromJson(String uid, Map<dynamic, dynamic> json) {
     return UserModel(
-      uid: uid ?? this.uid,
-      name: name ?? this.name,
-      phone: phone ?? this.phone,
-      email: email ?? this.email,
-      role: role ?? this.role,
-      createdAt: createdAt ?? this.createdAt,
-      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
+      uid: uid,
+      name: json['name'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      registeredAt: json['registeredAt'] as String? ?? '',
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toJson() {
     return {
-      'uid': uid,
       'name': name,
       'phone': phone,
       'email': email,
-      'role': role,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'lastLoginAt': Timestamp.fromDate(lastLoginAt),
+      'registeredAt': registeredAt,
     };
   }
 
-  factory UserModel.fromMap(Map<String, dynamic> map) {
+  UserModel copyWith({
+    String? name,
+    String? phone,
+    String? email,
+    String? registeredAt,
+  }) {
     return UserModel(
-      uid: map['uid'] as String? ?? '',
-      name: map['name'] as String? ?? '',
-      phone: map['phone'] as String? ?? '',
-      email: map['email'] as String? ?? '',
-      role: map['role'] as String? ?? 'citizen',
-      createdAt: map['createdAt'] is Timestamp
-          ? (map['createdAt'] as Timestamp).toDate()
-          : (map['createdAt'] != null
-              ? DateTime.tryParse(map['createdAt'].toString()) ?? DateTime.now()
-              : DateTime.now()),
-      lastLoginAt: map['lastLoginAt'] is Timestamp
-          ? (map['lastLoginAt'] as Timestamp).toDate()
-          : (map['lastLoginAt'] != null
-              ? DateTime.tryParse(map['lastLoginAt'].toString()) ?? DateTime.now()
-              : DateTime.now()),
+      uid: uid,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      registeredAt: registeredAt ?? this.registeredAt,
     );
   }
 }

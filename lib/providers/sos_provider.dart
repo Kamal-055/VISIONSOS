@@ -1,119 +1,250 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:vision/core/services/sos_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:vision/models/sos_alert_model.dart';
+import 'package:vision/services/location_service.dart';
+import 'package:vision/services/firebase_service.dart';
+import 'package:vision/providers/auth_provider.dart';
 
-// SOS status enum is defined in sos_service.dart
-export 'package:vision/core/services/sos_service.dart' show SOSStatus;
+final locationServiceProvider = Provider<LocationService>((ref) => LocationService());
 
-final sosServiceProvider = Provider<SOSService>((ref) {
-  final service = SOSService();
-  ref.onDispose(service.dispose);
-  return service;
-});
-
-// State class representing the current SOS session
 class SOSState {
-  final SOSStatus status;
-  final String? alertId;
-  final double? latitude;
-  final double? longitude;
+  final String status;
+  final double latitude;
+  final double longitude;
+  final String lastUpdated;
+  final String nearestLight;
+  final double distance;
+  final String incidentStatus;
+  final bool isSOSActive;
   final String? errorMessage;
-  final DateTime? activatedAt;
+  final bool isLoading;
 
   const SOSState({
-    this.status = SOSStatus.idle,
-    this.alertId,
-    this.latitude,
-    this.longitude,
+    this.status = 'INACTIVE',
+    this.latitude = 0.0,
+    this.longitude = 0.0,
+    this.lastUpdated = '',
+    this.nearestLight = 'NONE',
+    this.distance = 0.0,
+    this.incidentStatus = 'NONE',
+    this.isSOSActive = false,
     this.errorMessage,
-    this.activatedAt,
+    this.isLoading = false,
   });
 
   SOSState copyWith({
-    SOSStatus? status,
-    String? alertId,
+    String? status,
     double? latitude,
     double? longitude,
+    String? lastUpdated,
+    String? nearestLight,
+    double? distance,
+    String? incidentStatus,
+    bool? isSOSActive,
     String? errorMessage,
-    DateTime? activatedAt,
+    bool? isLoading,
   }) {
     return SOSState(
       status: status ?? this.status,
-      alertId: alertId ?? this.alertId,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
-      errorMessage: errorMessage,
-      activatedAt: activatedAt ?? this.activatedAt,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      nearestLight: nearestLight ?? this.nearestLight,
+      distance: distance ?? this.distance,
+      incidentStatus: incidentStatus ?? this.incidentStatus,
+      isSOSActive: isSOSActive ?? this.isSOSActive,
+      errorMessage: errorMessage, // can be cleared
+      isLoading: isLoading ?? this.isLoading,
     );
   }
-
-  bool get isIdle => status == SOSStatus.idle;
-  bool get isActivating => status == SOSStatus.activating;
-  bool get isActive => status == SOSStatus.active;
-  bool get isCancelling => status == SOSStatus.cancelling;
 }
 
 class SOSNotifier extends StateNotifier<SOSState> {
-  final SOSService _sosService;
+  final LocationService _locationService;
+  final FirebaseService _firebaseService;
+  final Ref _ref;
 
-  SOSNotifier(this._sosService) : super(const SOSState());
+  StreamSubscription<Position>? _locationSubscription;
+  StreamSubscription<DatabaseEvent>? _alertSubscription;
+  StreamSubscription<DatabaseEvent>? _incidentSubscription;
 
-  Future<void> activateSOS() async {
-    if (state.status != SOSStatus.idle) return;
+  SOSNotifier(this._locationService, this._firebaseService, this._ref)
+      : super(const SOSState()) {
+    _startFirebaseListeners();
+  }
 
-    state = state.copyWith(status: SOSStatus.activating, errorMessage: null);
+  void _startFirebaseListeners() {
+    // 1. Listen to sos_alert/current_alert
+    _alertSubscription = _firebaseService.currentAlertStream().listen(
+      (event) {
+        final data = event.snapshot.value as Map<dynamic, dynamic>?;
+        if (data != null && data['status'] == 'ACTIVE') {
+          state = state.copyWith(
+            nearestLight: (data['nearestLight'] as String?) ?? 'NONE',
+            distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
+            status: 'ACTIVE',
+            isSOSActive: true,
+          );
+        } else if (data != null && data['status'] == 'INACTIVE') {
+          state = state.copyWith(
+            status: 'INACTIVE',
+            isSOSActive: false,
+          );
+          _stopLocationTracking();
+        }
+      },
+      onError: (err) {
+        state = state.copyWith(errorMessage: 'Alert listener error: $err');
+      },
+    );
+
+    // 2. Listen to incident_status/current_case
+    _incidentSubscription = _firebaseService.incidentStatusStream().listen(
+      (event) {
+        final data = event.snapshot.value as Map<dynamic, dynamic>?;
+        if (data != null) {
+          state = state.copyWith(
+            incidentStatus: (data['status'] as String?) ?? 'NONE',
+          );
+        }
+      },
+      onError: (err) {
+        state = state.copyWith(errorMessage: 'Incident listener error: $err');
+      },
+    );
+  }
+
+  /// Trigger SOS Alert Immediately
+  Future<void> triggerSOS() async {
+    final authState = _ref.read(authNotifierProvider);
+    final user = authState.user;
+    if (user == null) {
+      state = state.copyWith(errorMessage: 'User not authenticated.');
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final alertId = await _sosService.activateSOS();
-      state = state.copyWith(
-        status: SOSStatus.active,
-        alertId: alertId,
-        activatedAt: DateTime.now(),
+      // Step 1: Check and request location permission
+      final hasPermission = await _locationService.requestLocationPermission();
+      if (!hasPermission) {
+        throw Exception('Location permission denied.');
+      }
+
+      // Step 2: Get current location
+      final position = await _locationService.getCurrentLocation();
+      
+      // Step 3: Generate ISO8601 UTC timestamp
+      final timestamp = DateTime.now().toUtc().toIso8601String();
+      final alertId = _firebaseService.currentAlertStream().first.toString(); // dummy seed or unique string
+      final generatedAlertId = 'alert_${DateTime.now().millisecondsSinceEpoch}';
+
+      final alert = SOSAlertModel(
+        alertId: generatedAlertId,
+        user: user.uid,
+        userName: user.name,
+        phone: user.phone,
+        status: 'ACTIVE',
+        latitude: position.latitude,
+        longitude: position.longitude,
+        nearestLight: 'NONE',
+        distance: 0.0,
+        timestamp: timestamp,
       );
+
+      // Step 4 & 5: Write current alert and history logs
+      await _firebaseService.triggerSOS(alert);
+
+      state = state.copyWith(
+        status: 'ACTIVE',
+        latitude: position.latitude,
+        longitude: position.longitude,
+        lastUpdated: timestamp,
+        isSOSActive: true,
+        isLoading: false,
+      );
+
+      // Step 6: Start continuous location tracking
+      _startLocationTracking(user.uid);
     } catch (e) {
-      state = state.copyWith(
-        status: SOSStatus.idle,
-        errorMessage: e.toString(),
-      );
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
       rethrow;
     }
   }
 
-  Future<void> cancelSOS() async {
-    final alertId = state.alertId;
-    if (alertId == null || state.status != SOSStatus.active) return;
+  void _startLocationTracking(String uid) {
+    _locationSubscription?.cancel();
+    
+    _locationSubscription = _locationService.getLocationStream().listen(
+      (Position position) async {
+        final timestamp = DateTime.now().toUtc().toIso8601String();
+        
+        // Write live tracking info
+        await _firebaseService.updateLiveTracking(
+          uid,
+          position.latitude,
+          position.longitude,
+        );
 
-    state = state.copyWith(status: SOSStatus.cancelling, errorMessage: null);
-
-    try {
-      await _sosService.cancelSOS(alertId);
-      state = const SOSState(); // Reset to idle
-    } catch (e) {
-      state = state.copyWith(
-        status: SOSStatus.active,
-        errorMessage: e.toString(),
-      );
-      rethrow;
-    }
+        // Also update local state
+        state = state.copyWith(
+          latitude: position.latitude,
+          longitude: position.longitude,
+          lastUpdated: timestamp,
+        );
+      },
+      onError: (err) {
+        state = state.copyWith(errorMessage: 'GPS tracking error: $err');
+      },
+    );
   }
 
-  Future<void> resolveAlert() async {
-    final alertId = state.alertId;
-    if (alertId == null) return;
+  void _stopLocationTracking() {
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
+  }
+
+  /// Cancel Active SOS
+  Future<void> deactivateSOS() async {
+    final authState = _ref.read(authNotifierProvider);
+    final user = authState.user;
+    if (user == null) return;
+
+    state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      await _sosService.resolveAlert(alertId);
-      state = const SOSState(); // Reset to idle
+      await _firebaseService.cancelSOS(user.uid);
+      _stopLocationTracking();
+
+      state = state.copyWith(
+        status: 'INACTIVE',
+        isSOSActive: false,
+        isLoading: false,
+      );
     } catch (e) {
-      state = state.copyWith(errorMessage: e.toString());
+      state = state.copyWith(isLoading: false, errorMessage: e.toString());
+      rethrow;
     }
   }
 
   void clearError() {
     state = state.copyWith(errorMessage: null);
   }
+
+  @override
+  void dispose() {
+    _locationSubscription?.cancel();
+    _alertSubscription?.cancel();
+    _incidentSubscription?.cancel();
+    super.dispose();
+  }
 }
 
 final sosNotifierProvider = StateNotifierProvider<SOSNotifier, SOSState>((ref) {
-  final sosService = ref.watch(sosServiceProvider);
-  return SOSNotifier(sosService);
+  final locationService = ref.watch(locationServiceProvider);
+  final firebaseService = ref.watch(firebaseServiceProvider);
+  return SOSNotifier(locationService, firebaseService, ref);
 });
