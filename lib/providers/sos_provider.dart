@@ -139,7 +139,6 @@ class SOSNotifier extends StateNotifier<SOSState> {
       
       // Step 3: Generate ISO8601 UTC timestamp
       final timestamp = DateTime.now().toUtc().toIso8601String();
-      final alertId = _firebaseService.currentAlertStream().first.toString(); // dummy seed or unique string
       final generatedAlertId = 'alert_${DateTime.now().millisecondsSinceEpoch}';
 
       final alert = SOSAlertModel(
