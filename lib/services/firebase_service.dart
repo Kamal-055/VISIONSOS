@@ -76,29 +76,19 @@ class FirebaseService {
 
       if (!userNeedsInit && !contactsNeedInit) return;
 
-      // Look up if there's a seed/sample user under another key (e.g. sample_user) with the same email
-      String? seedKey;
+      // Load seed template from "sample_user"
       Map<dynamic, dynamic>? seedUserData;
-      
-      final snapshot = await _usersRef.get();
-      if (snapshot.exists && snapshot.value is Map) {
-        final map = snapshot.value as Map<dynamic, dynamic>;
-        for (final entry in map.entries) {
-          final userData = entry.value as Map<dynamic, dynamic>?;
-          if (userData != null && userData['email']?.toString().toLowerCase().trim() == email.toLowerCase().trim() && entry.key.toString() != uid) {
-            seedKey = entry.key.toString();
-            seedUserData = userData;
-            break;
-          }
-        }
+      final seedUserSnapshot = await _usersRef.child('sample_user').get();
+      if (seedUserSnapshot.exists && seedUserSnapshot.value is Map) {
+        seedUserData = seedUserSnapshot.value as Map<dynamic, dynamic>;
       }
       
       if (userNeedsInit) {
-        String name = 'Citizen';
-        String phone = '';
+        String name = 'Test User';
+        String phone = '66355526';
         if (seedUserData != null) {
-          name = seedUserData['name']?.toString() ?? 'Citizen';
-          phone = seedUserData['phone']?.toString() ?? '';
+          name = seedUserData['name']?.toString() ?? 'Test User';
+          phone = seedUserData['phone']?.toString() ?? '66355526';
         }
         
         // Write user profile to users/{uid}
@@ -113,19 +103,17 @@ class FirebaseService {
       if (contactsNeedInit) {
         // Try to load seed emergency contacts
         Map<String, String> contacts = {
-          'mother': '',
-          'father': '',
-          'friend': '',
+          'mother': '9876543210',
+          'father': '9988776655',
+          'friend': '9876543211',
         };
         
-        if (seedKey != null) {
-          final seedContactsSnapshot = await _contactsRef.child(seedKey).get();
-          if (seedContactsSnapshot.exists && seedContactsSnapshot.value is Map) {
-            final contactsMap = seedContactsSnapshot.value as Map<dynamic, dynamic>;
-            contacts['mother'] = contactsMap['mother']?.toString() ?? '';
-            contacts['father'] = contactsMap['father']?.toString() ?? '';
-            contacts['friend'] = contactsMap['friend']?.toString() ?? '';
-          }
+        final seedContactsSnapshot = await _contactsRef.child('sample_user').get();
+        if (seedContactsSnapshot.exists && seedContactsSnapshot.value is Map) {
+          final contactsMap = seedContactsSnapshot.value as Map<dynamic, dynamic>;
+          contacts['mother'] = contactsMap['mother']?.toString() ?? '9876543210';
+          contacts['father'] = contactsMap['father']?.toString() ?? '9988776655';
+          contacts['friend'] = contactsMap['friend']?.toString() ?? '9876543211';
         }
         
         // Write emergency contacts to emergency_contacts/{uid}
