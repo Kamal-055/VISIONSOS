@@ -6,6 +6,7 @@ import 'package:vision/models/sos_alert_model.dart';
 import 'package:vision/services/location_service.dart';
 import 'package:vision/services/firebase_service.dart';
 import 'package:vision/providers/auth_provider.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 final locationServiceProvider = Provider<LocationService>((ref) => LocationService());
 
@@ -66,6 +67,8 @@ class SOSNotifier extends StateNotifier<SOSState> {
   final FirebaseService _firebaseService;
   final Ref _ref;
 
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
   StreamSubscription<Position>? _locationSubscription;
   StreamSubscription<DatabaseEvent>? _alertSubscription;
   StreamSubscription<DatabaseEvent>? _incidentSubscription;
@@ -73,6 +76,23 @@ class SOSNotifier extends StateNotifier<SOSState> {
   SOSNotifier(this._locationService, this._firebaseService, this._ref)
       : super(const SOSState()) {
     _startFirebaseListeners();
+  }
+
+  Future<void> _playAlarm() async {
+    try {
+      await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      await _audioPlayer.play(AssetSource('sounds/sos.mp3'));
+    } catch (e) {
+      // Suppress audio faults to preserve tracking logic
+    }
+  }
+
+  Future<void> _stopAlarm() async {
+    try {
+      await _audioPlayer.stop();
+    } catch (e) {
+      // Suppress
+    }
   }
 
   void _startFirebaseListeners() {
@@ -87,12 +107,14 @@ class SOSNotifier extends StateNotifier<SOSState> {
             status: 'ACTIVE',
             isSOSActive: true,
           );
+          _playAlarm();
         } else if (data != null && data['status'] == 'INACTIVE') {
           state = state.copyWith(
             status: 'INACTIVE',
             isSOSActive: false,
           );
           _stopLocationTracking();
+          _stopAlarm();
         }
       },
       onError: (err) {
@@ -168,6 +190,9 @@ class SOSNotifier extends StateNotifier<SOSState> {
 
       // Step 6: Start continuous location tracking
       _startLocationTracking(user.uid);
+      
+      // Start alarm sound
+      _playAlarm();
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
       rethrow;
@@ -217,6 +242,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
     try {
       await _firebaseService.cancelSOS(user.uid);
       _stopLocationTracking();
+      _stopAlarm();
 
       state = state.copyWith(
         status: 'INACTIVE',
@@ -238,6 +264,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
     _locationSubscription?.cancel();
     _alertSubscription?.cancel();
     _incidentSubscription?.cancel();
+    _audioPlayer.dispose();
     super.dispose();
   }
 }
