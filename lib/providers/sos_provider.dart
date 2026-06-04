@@ -169,6 +169,12 @@ class SOSNotifier extends StateNotifier<SOSState> {
 
   /// Trigger SOS Alert Immediately
   Future<void> triggerSOS() async {
+    try {
+      await _ref.read(authNotifierProvider.notifier).reloadProfile();
+    } catch (_) {
+      // Suppress to ensure SOS button triggers even under bad network
+    }
+
     final authState = _ref.read(authNotifierProvider);
     final user = authState.user;
     if (user == null) {

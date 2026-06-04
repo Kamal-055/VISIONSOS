@@ -209,6 +209,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> reloadProfile() async {
+    await _initUser();
+  }
+
   void clearError() {
     state = state.copyWith(errorMessage: null);
   }
