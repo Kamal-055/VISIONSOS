@@ -288,20 +288,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       // Header
                       Column(
                         children: [
-                          const Icon(
-                            Icons.shield_rounded,
-                            color: Color(0xFFEF4444),
-                            size: 52,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'VISION',
-                            style: GoogleFonts.outfit(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 6,
-                            ),
+                          Image.asset(
+                            'assets/images/logo.png',
+                            height: 120,
+                            fit: BoxFit.contain,
                           ),
                           const SizedBox(height: 4),
                           Text(

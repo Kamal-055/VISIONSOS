@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:vision/providers/auth_provider.dart';
 import 'package:vision/screens/login_screen.dart';
 import 'package:vision/screens/sos_screen.dart';
@@ -102,48 +101,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF2563EB).withOpacity(0.1),
-                        border: Border.all(
-                          color: const Color(0xFF2563EB).withOpacity(0.3),
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF2563EB).withOpacity(0.2),
-                            blurRadius: 30,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.shield_rounded,
-                        color: Color(0xFFEF4444),
-                        size: 64,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'VISION',
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 48,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 8,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'SEE  •  SECURE  •  SERVE',
-                      style: GoogleFonts.outfit(
-                        color: const Color(0xFF94A3B8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 4,
-                      ),
+                    Image.asset(
+                      'assets/images/logo.png',
+                      height: 280,
+                      fit: BoxFit.contain,
                     ),
                   ],
                 ),
