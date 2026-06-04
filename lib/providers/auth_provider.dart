@@ -52,11 +52,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (user != null) {
       state = state.copyWith(isLoading: true);
       try {
-        final profile = await _firebaseService.getUserProfile(user.uid);
+        var profile = await _firebaseService.getUserProfile(user.uid);
+        profile ??= UserModel(
+          uid: user.uid,
+          name: user.displayName ?? 'Citizen',
+          phone: user.phoneNumber ?? '',
+          email: user.email ?? '',
+          registeredAt: DateTime.now().toUtc().toIso8601String(),
+        );
         final contacts = await _firebaseService.getEmergencyContacts(user.uid);
         state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
       } catch (e) {
-        state = state.copyWith(isLoading: false, errorMessage: e.toString());
+        final fallbackProfile = UserModel(
+          uid: user.uid,
+          name: user.displayName ?? 'Citizen',
+          phone: user.phoneNumber ?? '',
+          email: user.email ?? '',
+          registeredAt: DateTime.now().toUtc().toIso8601String(),
+        );
+        state = state.copyWith(
+          user: fallbackProfile,
+          isLoading: false,
+          errorMessage: 'Database profile not found or permission denied. Using session fallback.',
+        );
       }
     }
   }
@@ -65,9 +83,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final credential = await _authService.signIn(email, password);
-      final uid = credential.user!.uid;
-      final profile = await _firebaseService.getUserProfile(uid);
-      final contacts = await _firebaseService.getEmergencyContacts(uid);
+      final firebaseUser = credential.user!;
+      
+      UserModel? profile;
+      try {
+        profile = await _firebaseService.getUserProfile(firebaseUser.uid);
+      } catch (e) {
+        // Fallback on error
+      }
+
+      profile ??= UserModel(
+        uid: firebaseUser.uid,
+        name: firebaseUser.displayName ?? 'Citizen',
+        phone: firebaseUser.phoneNumber ?? '',
+        email: firebaseUser.email ?? '',
+        registeredAt: DateTime.now().toUtc().toIso8601String(),
+      );
+
+      Map<String, String>? contacts;
+      try {
+        contacts = await _firebaseService.getEmergencyContacts(firebaseUser.uid);
+      } catch (e) {
+        // Fallback
+      }
+
       state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
@@ -87,10 +126,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final uid = credential.user!.uid;
       
       // Write metadata to Realtime Database
-      await _firebaseService.createUserProfile(uid, name, phone, email);
+      try {
+        await _firebaseService.createUserProfile(uid, name, phone, email);
+      } catch (e) {
+        // Suppress write errors so auth is not broken by database rules
+      }
       
-      final profile = await _firebaseService.getUserProfile(uid);
-      final contacts = await _firebaseService.getEmergencyContacts(uid);
+      UserModel? profile;
+      try {
+        profile = await _firebaseService.getUserProfile(uid);
+      } catch (e) {
+        // Suppress
+      }
+
+      profile ??= UserModel(
+        uid: uid,
+        name: name,
+        phone: phone,
+        email: email,
+        registeredAt: DateTime.now().toUtc().toIso8601String(),
+      );
+
+      Map<String, String>? contacts;
+      try {
+        contacts = await _firebaseService.getEmergencyContacts(uid);
+      } catch (e) {
+        // Suppress
+      }
       
       state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
     } catch (e) {

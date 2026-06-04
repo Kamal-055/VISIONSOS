@@ -1,18 +1,14 @@
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class LocationService {
-  /// Request location permissions via permission_handler
+  /// Request location permissions natively via Geolocator
   Future<bool> requestLocationPermission() async {
-    // Check permission status
-    PermissionStatus status = await Permission.location.status;
-    
-    if (status.isDenied) {
-      status = await Permission.location.request();
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
     }
-    
-    return status.isGranted || status.isLimited;
+    return permission == LocationPermission.always || permission == LocationPermission.whileInUse;
   }
 
   /// Get current GPS location using highest accuracy
