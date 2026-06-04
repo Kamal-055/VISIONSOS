@@ -1,9 +1,13 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:vision/models/user_model.dart';
 import 'package:vision/models/sos_alert_model.dart';
 
 class FirebaseService {
-  final FirebaseDatabase _db = FirebaseDatabase.instance;
+  final FirebaseDatabase _db = FirebaseDatabase.instanceFor(
+    app: Firebase.app(),
+    databaseURL: 'https://vision-sos-5df6a-default-rtdb.firebaseio.com',
+  );
 
   // Reference getters
   DatabaseReference get _usersRef => _db.ref('users');

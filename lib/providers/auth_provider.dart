@@ -126,33 +126,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final uid = credential.user!.uid;
       
       // Write metadata to Realtime Database
-      try {
-        await _firebaseService.createUserProfile(uid, name, phone, email);
-      } catch (e) {
-        // Suppress write errors so auth is not broken by database rules
-      }
+      await _firebaseService.createUserProfile(uid, name, phone, email);
       
-      UserModel? profile;
-      try {
-        profile = await _firebaseService.getUserProfile(uid);
-      } catch (e) {
-        // Suppress
-      }
-
-      profile ??= UserModel(
-        uid: uid,
-        name: name,
-        phone: phone,
-        email: email,
-        registeredAt: DateTime.now().toUtc().toIso8601String(),
-      );
-
-      Map<String, String>? contacts;
-      try {
-        contacts = await _firebaseService.getEmergencyContacts(uid);
-      } catch (e) {
-        // Suppress
-      }
+      final profile = await _firebaseService.getUserProfile(uid);
+      final contacts = await _firebaseService.getEmergencyContacts(uid);
       
       state = state.copyWith(user: profile, contacts: contacts, isLoading: false);
     } catch (e) {
