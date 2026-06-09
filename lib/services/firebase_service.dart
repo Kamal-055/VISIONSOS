@@ -185,15 +185,41 @@ class FirebaseService {
 
   // --- SOS OPERATIONS ---
 
-  Future<void> triggerSOS(SOSAlertModel alert) async {
+  Future<void> triggerSOS(SOSAlertModel alert, {String email = ''}) async {
     try {
       final uid = alert.user;
 
-      // Step 4: Write to user-isolated sos_alerts/{uid}
+      // Write to user-isolated sos_alerts/{uid}
       await _db.ref('sos_alerts/$uid').set(alert.toJson());
 
-      // Step 5: Write history entry under sos_history/{alertId}
+      // Write history entry under sos_history/{alertId}
       await _sosHistoryRef.child(alert.alertId).set(alert.toHistoryJson());
+
+      // Write to active_incidents/{alertId} to sync with Police Dashboard
+      await _db.ref('active_incidents/${alert.alertId}').set({
+        'alertId': alert.alertId,
+        'incidentId': alert.alertId,
+        'uid': uid,
+        'userId': uid,
+        'userName': alert.userName,
+        'phone': alert.phone,
+        'email': email,
+        'status': 'ACTIVE',
+        'latitude': alert.latitude,
+        'longitude': alert.longitude,
+        'timestamp': alert.timestamp,
+        'timeCreated': alert.timestamp,
+        'lastUpdated': alert.timestamp,
+        'nearestLight': alert.nearestLight,
+        'distance': '${alert.distance.toStringAsFixed(1)}m',
+        'assignedOfficer': 'UNASSIGNED',
+        'assignedResponders': 'UNASSIGNED',
+        'assignedStreetlight': 'NONE',
+        'priority': 'HIGH',
+        'severityLevel': 'HIGH',
+        'deviceId': 'DEV_${DateTime.now().millisecondsSinceEpoch % 1000000}',
+        'emergencyType': 'Emergency',
+      });
 
       // Reset incident status and lastUpdated timestamp for this user
       await _db.ref('incident_status/$uid').set({
@@ -231,7 +257,7 @@ class FirebaseService {
     }
   }
 
-  Future<void> cancelSOS(String uid) async {
+  Future<void> cancelSOS(String uid, {String? alertId}) async {
     try {
       // Deactivate current alert for this user
       await _db.ref('sos_alerts/$uid').update({
@@ -243,6 +269,20 @@ class FirebaseService {
         'status': 'RESOLVED',
         'lastUpdated': DateTime.now().millisecondsSinceEpoch,
       });
+
+      // Also update active_incidents/{alertId} status to RESOLVED if alertId is provided
+      if (alertId != null && alertId.isNotEmpty) {
+        final incidentRef = _db.ref('active_incidents/$alertId');
+        final snapshot = await incidentRef.get();
+        if (snapshot.exists && snapshot.value is Map) {
+          final existingData = Map<String, dynamic>.from(snapshot.value as Map);
+          existingData['status'] = 'RESOLVED';
+          existingData['lastUpdated'] = DateTime.now().toUtc().toIso8601String();
+          existingData['resolvedAt'] = DateTime.now().toUtc().toIso8601String();
+          existingData['resolvedBy'] = 'Citizen';
+          await incidentRef.set(existingData);
+        }
+      }
 
       // Update analytics/summary in real-time atomically
       try {
@@ -293,5 +333,9 @@ class FirebaseService {
 
   Stream<DatabaseEvent> incidentStatusStream(String uid) {
     return _db.ref('incident_status/$uid').onValue;
+  }
+
+  Stream<DatabaseEvent> activeIncidentStream(String alertId) {
+    return _db.ref('active_incidents/$alertId').onValue;
   }
 }

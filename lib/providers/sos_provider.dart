@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -24,6 +25,7 @@ class SOSState {
   final bool isSOSActive;
   final String? errorMessage;
   final bool isLoading;
+  final String? alertId;
 
   const SOSState({
     this.status = 'INACTIVE',
@@ -39,6 +41,7 @@ class SOSState {
     this.isSOSActive = false,
     this.errorMessage,
     this.isLoading = false,
+    this.alertId,
   });
 
   SOSState copyWith({
@@ -55,6 +58,7 @@ class SOSState {
     bool? isSOSActive,
     String? errorMessage,
     bool? isLoading,
+    String? alertId,
   }) {
     return SOSState(
       status: status ?? this.status,
@@ -70,6 +74,7 @@ class SOSState {
       isSOSActive: isSOSActive ?? this.isSOSActive,
       errorMessage: errorMessage, // can be cleared
       isLoading: isLoading ?? this.isLoading,
+      alertId: alertId ?? this.alertId,
     );
   }
 }
@@ -84,6 +89,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
   StreamSubscription<Position>? _locationSubscription;
   StreamSubscription<DatabaseEvent>? _alertSubscription;
   StreamSubscription<DatabaseEvent>? _incidentSubscription;
+  StreamSubscription<DatabaseEvent>? _activeIncidentSubscription;
 
   SOSNotifier(this._locationService, this._firebaseService, this._ref)
       : super(const SOSState()) {
@@ -129,35 +135,44 @@ class SOSNotifier extends StateNotifier<SOSState> {
   void _startFirebaseListeners(String uid) {
     _stopFirebaseListeners();
 
-    print('[DEBUG] [User: $uid] Starting Firebase Realtime Database listeners for user: $uid');
+    debugPrint('[DEBUG] [User: $uid] Starting Firebase Realtime Database listeners for user: $uid');
 
     // 1. Listen to user-specific sos_alerts/{uid}
     _alertSubscription = _firebaseService.currentAlertStream(uid).listen(
       (event) {
         final data = event.snapshot.value as Map<dynamic, dynamic>?;
-        print('[DEBUG] [User: $uid] sos_alerts update received: $data');
+        debugPrint('[DEBUG] [User: $uid] sos_alerts update received: $data');
 
         if (data != null && data['status'] == 'ACTIVE') {
-          print('[DEBUG] [User: $uid] Active SOS alert detected. Incident ID: ${data['alertId']}, Status: ACTIVE');
+          final alertId = data['alertId'] as String?;
+          debugPrint('[DEBUG] [User: $uid] Active SOS alert detected. Incident ID: $alertId, Status: ACTIVE');
           state = state.copyWith(
             nearestLight: (data['nearestLight'] as String?) ?? 'NONE',
             distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
             status: 'ACTIVE',
             isSOSActive: true,
             lastUpdated: (data['timestamp'] as String?) ?? state.lastUpdated,
+            alertId: alertId,
           );
           _playAlarm();
+
+          if (alertId != null) {
+            _startActiveIncidentListener(alertId, uid);
+          }
         } else {
-          print('[DEBUG] [User: $uid] SOS alert is inactive or null. Setting state to INACTIVE');
+          debugPrint('[DEBUG] [User: $uid] SOS alert is inactive or null. Setting state to INACTIVE');
+          _activeIncidentSubscription?.cancel();
+          _activeIncidentSubscription = null;
           state = state.copyWith(
             status: 'INACTIVE',
             isSOSActive: false,
+            alertId: null,
           );
           _stopAlarm();
         }
       },
       onError: (err) {
-        print('[DEBUG] [User: $uid] Alert listener error: $err');
+        debugPrint('[DEBUG] [User: $uid] Alert listener error: $err');
         state = state.copyWith(errorMessage: 'Alert listener error: $err');
       },
     );
@@ -166,19 +181,36 @@ class SOSNotifier extends StateNotifier<SOSState> {
     _incidentSubscription = _firebaseService.incidentStatusStream(uid).listen(
       (event) {
         final data = event.snapshot.value as Map<dynamic, dynamic>?;
-        print('[DEBUG] [User: $uid] incident_status update received: $data');
+        debugPrint('[DEBUG] [User: $uid] incident_status update received: $data');
 
         if (data != null) {
-          print('[DEBUG] [User: $uid] Incident updated. Case ID: ${data['caseId']}, Status: ${data['status']}');
-          state = state.copyWith(
-            incidentStatus: (data['status'] as String?) ?? 'NONE',
-            assignedLight: (data['assignedLight'] as String?) ?? 'NONE',
-            assignedOfficer: (data['assignedOfficer'] as String?) ?? 'NONE',
-            caseId: (data['caseId'] as String?) ?? 'NONE',
-            lastUpdated: data['lastUpdated'] != null ? data['lastUpdated'].toString() : state.lastUpdated,
-          );
+          debugPrint('[DEBUG] [User: $uid] Incident updated. Case ID: ${data['caseId']}, Status: ${data['status']}');
+          
+          final incomingStatus = (data['status'] as String?) ?? 'NONE';
+          final incomingLight = (data['assignedLight'] as String?) ?? 'NONE';
+          final incomingOfficer = (data['assignedOfficer'] as String?) ?? 'NONE';
+          final incomingCaseId = (data['caseId'] as String?) ?? 'NONE';
+          final incomingLastUpdated = data['lastUpdated'] != null ? data['lastUpdated'].toString() : state.lastUpdated;
+
+          if (state.isSOSActive && state.alertId != null && incomingStatus != 'RESOLVED') {
+            state = state.copyWith(
+              caseId: incomingCaseId,
+              incidentStatus: state.incidentStatus != 'NONE' ? state.incidentStatus : incomingStatus,
+              assignedLight: state.assignedLight != 'NONE' ? state.assignedLight : incomingLight,
+              assignedOfficer: state.assignedOfficer != 'NONE' ? state.assignedOfficer : incomingOfficer,
+              lastUpdated: state.lastUpdated.isNotEmpty ? state.lastUpdated : incomingLastUpdated,
+            );
+          } else {
+            state = state.copyWith(
+              incidentStatus: incomingStatus,
+              assignedLight: incomingLight,
+              assignedOfficer: incomingOfficer,
+              caseId: incomingCaseId,
+              lastUpdated: incomingLastUpdated,
+            );
+          }
         } else {
-          print('[DEBUG] [User: $uid] Incident status is null. Resetting incident state fields');
+          debugPrint('[DEBUG] [User: $uid] Incident status is null. Resetting incident state fields');
           state = state.copyWith(
             incidentStatus: 'NONE',
             assignedLight: 'NONE',
@@ -188,18 +220,54 @@ class SOSNotifier extends StateNotifier<SOSState> {
         }
       },
       onError: (err) {
-        print('[DEBUG] [User: $uid] Incident listener error: $err');
+        debugPrint('[DEBUG] [User: $uid] Incident listener error: $err');
         state = state.copyWith(errorMessage: 'Incident listener error: $err');
       },
     );
   }
 
+  void _startActiveIncidentListener(String alertId, String uid) {
+    if (_activeIncidentSubscription != null) {
+      return;
+    }
+
+    debugPrint('[DEBUG] [User: $uid] Starting active incident listener for Alert ID: $alertId');
+
+    _activeIncidentSubscription = _firebaseService.activeIncidentStream(alertId).listen(
+      (event) {
+        final data = event.snapshot.value as Map<dynamic, dynamic>?;
+        debugPrint('[DEBUG] [User: $uid] active_incidents/$alertId update received: $data');
+
+        if (data != null) {
+          final assignedOfficer = (data['assignedOfficer'] as String?) ?? 'NONE';
+          final assignedLight = (data['assignedStreetlight'] as String?) ?? 'NONE';
+          final incidentStatus = (data['status'] as String?) ?? 'NONE';
+          final lastUpdated = (data['lastUpdated'] as String?) ?? state.lastUpdated;
+
+          debugPrint('[DEBUG] [User: $uid] Active incident updated. Status: $incidentStatus, Officer: $assignedOfficer, Light: $assignedLight, LastUpdated: $lastUpdated');
+
+          state = state.copyWith(
+            incidentStatus: incidentStatus,
+            assignedOfficer: assignedOfficer,
+            assignedLight: assignedLight,
+            lastUpdated: lastUpdated,
+          );
+        }
+      },
+      onError: (err) {
+        debugPrint('[DEBUG] [User: $uid] Active incident listener error: $err');
+      },
+    );
+  }
+
   void _stopFirebaseListeners() {
-    print('[DEBUG] Stopping Firebase Realtime Database listeners');
+    debugPrint('[DEBUG] Stopping Firebase Realtime Database listeners');
     _alertSubscription?.cancel();
     _alertSubscription = null;
     _incidentSubscription?.cancel();
     _incidentSubscription = null;
+    _activeIncidentSubscription?.cancel();
+    _activeIncidentSubscription = null;
     state = state.copyWith(
       status: 'INACTIVE',
       isSOSActive: false,
@@ -207,6 +275,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
       assignedLight: 'NONE',
       assignedOfficer: 'NONE',
       caseId: 'NONE',
+      alertId: null,
     );
     _stopAlarm();
   }
@@ -255,8 +324,8 @@ class SOSNotifier extends StateNotifier<SOSState> {
         timestamp: timestamp,
       );
 
-      // Step 4 & 5: Write current alert and history logs
-      await _firebaseService.triggerSOS(alert);
+      // Write current alert and history logs, passing the user's email
+      await _firebaseService.triggerSOS(alert, email: user.email);
 
       state = state.copyWith(
         status: 'ACTIVE',
@@ -265,6 +334,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
         lastUpdated: timestamp,
         isSOSActive: true,
         isLoading: false,
+        alertId: generatedAlertId,
       );
 
       // Step 6: Start continuous location tracking
@@ -319,13 +389,14 @@ class SOSNotifier extends StateNotifier<SOSState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      await _firebaseService.cancelSOS(user.uid);
+      await _firebaseService.cancelSOS(user.uid, alertId: state.alertId);
       _stopAlarm();
 
       state = state.copyWith(
         status: 'INACTIVE',
         isSOSActive: false,
         isLoading: false,
+        alertId: null,
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
@@ -342,6 +413,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
     _locationSubscription?.cancel();
     _alertSubscription?.cancel();
     _incidentSubscription?.cancel();
+    _activeIncidentSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
