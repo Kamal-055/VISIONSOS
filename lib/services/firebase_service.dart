@@ -12,10 +12,8 @@ class FirebaseService {
   // Reference getters
   DatabaseReference get _usersRef => _db.ref('users');
   DatabaseReference get _contactsRef => _db.ref('emergency_contacts');
-  DatabaseReference get _sosAlertRef => _db.ref('sos_alert/current_alert');
   DatabaseReference get _sosHistoryRef => _db.ref('sos_history');
   DatabaseReference get _liveTrackingRef => _db.ref('live_tracking');
-  DatabaseReference get _incidentStatusRef => _db.ref('incident_status/current_case');
   DatabaseReference get _analyticsSummaryRef => _db.ref('analytics/summary');
 
   // --- USER OPERATIONS ---
@@ -189,22 +187,25 @@ class FirebaseService {
 
   Future<void> triggerSOS(SOSAlertModel alert) async {
     try {
-      // Step 4: Write to sos_alert/current_alert
-      await _sosAlertRef.set(alert.toJson());
+      final uid = alert.user;
+
+      // Step 4: Write to user-isolated sos_alerts/{uid}
+      await _db.ref('sos_alerts/$uid').set(alert.toJson());
 
       // Step 5: Write history entry under sos_history/{alertId}
       await _sosHistoryRef.child(alert.alertId).set(alert.toHistoryJson());
 
-      // Reset incident status and lastUpdated timestamp
-      await _incidentStatusRef.set({
+      // Reset incident status and lastUpdated timestamp for this user
+      await _db.ref('incident_status/$uid').set({
         'assignedLight': 'NONE',
         'assignedOfficer': 'NONE',
         'caseId': 'CASE_${DateTime.now().millisecondsSinceEpoch}',
         'status': 'ACTIVE',
         'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+        'userId': uid,
       });
 
-      // Update analytics/summary in real-time
+      // Update analytics/summary in real-time atomically
       try {
         final summarySnapshot = await _analyticsSummaryRef.get();
         int totalSOS = 0;
@@ -217,7 +218,7 @@ class FirebaseService {
         }
 
         await _analyticsSummaryRef.set({
-          'activeSOS': 1, // Force 1 active SOS
+          'activeSOS': ServerValue.increment(1),
           'totalSOS': totalSOS + 1,
           'resolvedSOS': resolvedSOS,
           'lastUpdated': DateTime.now().millisecondsSinceEpoch,
@@ -232,18 +233,18 @@ class FirebaseService {
 
   Future<void> cancelSOS(String uid) async {
     try {
-      // Deactivate current alert
-      await _sosAlertRef.update({
+      // Deactivate current alert for this user
+      await _db.ref('sos_alerts/$uid').update({
         'status': 'INACTIVE',
       });
 
-      // Update incident status to RESOLVED
-      await _incidentStatusRef.update({
+      // Update incident status to RESOLVED for this user
+      await _db.ref('incident_status/$uid').update({
         'status': 'RESOLVED',
         'lastUpdated': DateTime.now().millisecondsSinceEpoch,
       });
 
-      // Update analytics/summary in real-time
+      // Update analytics/summary in real-time atomically
       try {
         final summarySnapshot = await _analyticsSummaryRef.get();
         int totalSOS = 0;
@@ -256,7 +257,7 @@ class FirebaseService {
         }
 
         await _analyticsSummaryRef.set({
-          'activeSOS': 0, // Force 0 active SOS as it is deactivated
+          'activeSOS': ServerValue.increment(-1),
           'totalSOS': totalSOS,
           'resolvedSOS': resolvedSOS + 1,
           'lastUpdated': DateTime.now().millisecondsSinceEpoch,
@@ -286,11 +287,11 @@ class FirebaseService {
 
   // --- STREAM LISTENERS ---
 
-  Stream<DatabaseEvent> currentAlertStream() {
-    return _sosAlertRef.onValue;
+  Stream<DatabaseEvent> currentAlertStream(String uid) {
+    return _db.ref('sos_alerts/$uid').onValue;
   }
 
-  Stream<DatabaseEvent> incidentStatusStream() {
-    return _incidentStatusRef.onValue;
+  Stream<DatabaseEvent> incidentStatusStream(String uid) {
+    return _db.ref('incident_status/$uid').onValue;
   }
 }

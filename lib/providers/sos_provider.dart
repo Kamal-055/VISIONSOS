@@ -87,20 +87,24 @@ class SOSNotifier extends StateNotifier<SOSState> {
 
   SOSNotifier(this._locationService, this._firebaseService, this._ref)
       : super(const SOSState()) {
-    _startFirebaseListeners();
     
     // Start tracking immediately if already authenticated
     final currentAuth = _ref.read(authNotifierProvider);
     if (currentAuth.isAuthenticated && currentAuth.user != null) {
-      _startLocationTracking(currentAuth.user!.uid);
+      final uid = currentAuth.user!.uid;
+      _startLocationTracking(uid);
+      _startFirebaseListeners(uid);
     }
 
-    // Listen for future auth changes to start/stop tracking
+    // Listen for future auth changes to start/stop tracking & database listeners
     _ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       if (next.isAuthenticated && next.user != null) {
-        _startLocationTracking(next.user!.uid);
+        final uid = next.user!.uid;
+        _startLocationTracking(uid);
+        _startFirebaseListeners(uid);
       } else {
         _stopLocationTracking();
+        _stopFirebaseListeners();
       }
     });
   }
@@ -122,37 +126,29 @@ class SOSNotifier extends StateNotifier<SOSState> {
     }
   }
 
-  void _startFirebaseListeners() {
-    // 1. Listen to sos_alert/current_alert
-    _alertSubscription = _firebaseService.currentAlertStream().listen(
+  void _startFirebaseListeners(String uid) {
+    _stopFirebaseListeners();
+
+    print('[DEBUG] [User: $uid] Starting Firebase Realtime Database listeners for user: $uid');
+
+    // 1. Listen to user-specific sos_alerts/{uid}
+    _alertSubscription = _firebaseService.currentAlertStream(uid).listen(
       (event) {
         final data = event.snapshot.value as Map<dynamic, dynamic>?;
-        final currentAuth = _ref.read(authNotifierProvider);
-        final currentUid = currentAuth.user?.uid;
+        print('[DEBUG] [User: $uid] sos_alerts update received: $data');
 
         if (data != null && data['status'] == 'ACTIVE') {
-          final alertUser = data['user'] as String?;
-          if (alertUser == currentUid) {
-            state = state.copyWith(
-              nearestLight: (data['nearestLight'] as String?) ?? 'NONE',
-              distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
-              status: 'ACTIVE',
-              isSOSActive: true,
-              lastUpdated: (data['timestamp'] as String?) ?? state.lastUpdated,
-            );
-            _playAlarm();
-          } else {
-            // Alert is active but belongs to someone else
-            state = state.copyWith(
-              nearestLight: (data['nearestLight'] as String?) ?? 'NONE',
-              distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
-              status: 'INACTIVE',
-              isSOSActive: false,
-            );
-            _stopAlarm();
-          }
+          print('[DEBUG] [User: $uid] Active SOS alert detected. Incident ID: ${data['alertId']}, Status: ACTIVE');
+          state = state.copyWith(
+            nearestLight: (data['nearestLight'] as String?) ?? 'NONE',
+            distance: (data['distance'] as num?)?.toDouble() ?? 0.0,
+            status: 'ACTIVE',
+            isSOSActive: true,
+            lastUpdated: (data['timestamp'] as String?) ?? state.lastUpdated,
+          );
+          _playAlarm();
         } else {
-          // Alert is INACTIVE, null, or deleted
+          print('[DEBUG] [User: $uid] SOS alert is inactive or null. Setting state to INACTIVE');
           state = state.copyWith(
             status: 'INACTIVE',
             isSOSActive: false,
@@ -161,15 +157,19 @@ class SOSNotifier extends StateNotifier<SOSState> {
         }
       },
       onError: (err) {
+        print('[DEBUG] [User: $uid] Alert listener error: $err');
         state = state.copyWith(errorMessage: 'Alert listener error: $err');
       },
     );
 
-    // 2. Listen to incident_status/current_case
-    _incidentSubscription = _firebaseService.incidentStatusStream().listen(
+    // 2. Listen to user-specific incident_status/{uid}
+    _incidentSubscription = _firebaseService.incidentStatusStream(uid).listen(
       (event) {
         final data = event.snapshot.value as Map<dynamic, dynamic>?;
+        print('[DEBUG] [User: $uid] incident_status update received: $data');
+
         if (data != null) {
+          print('[DEBUG] [User: $uid] Incident updated. Case ID: ${data['caseId']}, Status: ${data['status']}');
           state = state.copyWith(
             incidentStatus: (data['status'] as String?) ?? 'NONE',
             assignedLight: (data['assignedLight'] as String?) ?? 'NONE',
@@ -178,6 +178,7 @@ class SOSNotifier extends StateNotifier<SOSState> {
             lastUpdated: data['lastUpdated'] != null ? data['lastUpdated'].toString() : state.lastUpdated,
           );
         } else {
+          print('[DEBUG] [User: $uid] Incident status is null. Resetting incident state fields');
           state = state.copyWith(
             incidentStatus: 'NONE',
             assignedLight: 'NONE',
@@ -187,9 +188,27 @@ class SOSNotifier extends StateNotifier<SOSState> {
         }
       },
       onError: (err) {
+        print('[DEBUG] [User: $uid] Incident listener error: $err');
         state = state.copyWith(errorMessage: 'Incident listener error: $err');
       },
     );
+  }
+
+  void _stopFirebaseListeners() {
+    print('[DEBUG] Stopping Firebase Realtime Database listeners');
+    _alertSubscription?.cancel();
+    _alertSubscription = null;
+    _incidentSubscription?.cancel();
+    _incidentSubscription = null;
+    state = state.copyWith(
+      status: 'INACTIVE',
+      isSOSActive: false,
+      incidentStatus: 'NONE',
+      assignedLight: 'NONE',
+      assignedOfficer: 'NONE',
+      caseId: 'NONE',
+    );
+    _stopAlarm();
   }
 
   /// Trigger SOS Alert Immediately
