@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:vision/main.dart';
+import 'package:vision/main.dart'; 
 
 void main() {
   testWidgets('App compiles and loads successfully smoke test', (WidgetTester tester) async {
